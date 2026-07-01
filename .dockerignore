@@ -1,0 +1,16 @@
+.git
+__pycache__
+*.pyc
+.claude
+
+# Datos reales: se montan como volumen en el docker-compose del orquestador
+# (tumtumpa), no deben copiarse a la imagen — covers/ pesa ~1.4G y library.db
+# (30M, aunque ya está en .gitignore) es el estado vivo de la librería.
+covers
+library.db
+library.json
+library.json.BAK
+
+.encrypted.env
+.env*
+*.db*
