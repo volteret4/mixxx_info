@@ -1,0 +1,1 @@
+/home/huan/gits/pollo/music-fuzzy/db/img/portadas_artistas.py
