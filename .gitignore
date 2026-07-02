@@ -11,3 +11,5 @@ client_secret*·json
 covers/
 library.json
 library.json.BAK
+node_modules/
+dist/
