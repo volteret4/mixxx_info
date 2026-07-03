@@ -12,9 +12,9 @@ from pathlib import Path
 
 import requests as _req
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import or_, func, String
@@ -29,6 +29,107 @@ engine = get_engine(DB_URL)
 init_db(engine)
 
 app = FastAPI(title="mixxx_info")
+
+# ── Panel de configuración (⚙) ───────────────────────────────────────────────
+# Mismo patrón que el resto de apps. El botón vive en web/ (React, servido
+# por nginx), pero nginx ya proxea /api/ hacia este backend — por eso las
+# rutas van aquí y no en el contenedor de nginx (que no puede leer/escribir
+# archivos ni ejecutar Python).
+SETTINGS_ENV_PATH = Path(__file__).parent.parent / ".env"
+SETTINGS_PASSWORD = os.environ.get("SETTINGS_PASSWORD", "")
+VARS_SPEC = [
+    {"name": "GEMINI_API_KEY", "secret": True, "help": "API key de Gemini (enriquecido de metadatos)"},
+    {"name": "LASTFM_API_KEY", "secret": True, "help": "API key de Last.fm"},
+    {"name": "DISCOGS_TOKEN", "secret": True, "help": "Token de Discogs"},
+    {"name": "SEARXNG_URL", "secret": False, "default": "http://localhost:8485", "help": "URL de la instancia SearXNG (búsqueda de reseñas)"},
+]
+_HAS_SECRETS = any(v.get("secret") for v in VARS_SPEC)
+
+
+def _read_env_file(path):
+    values = {}
+    if not os.path.exists(path):
+        return values
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            s = line.strip()
+            if not s or s.startswith("#") or "=" not in s:
+                continue
+            k, v = s.split("=", 1)
+            v = v.strip()
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in ('"', "'"):
+                v = v[1:-1]
+            values[k.strip()] = v
+    return values
+
+
+def _write_env_file(path, updates):
+    lines = []
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    seen = set()
+    out = []
+    for line in lines:
+        s = line.strip()
+        if s and not s.startswith("#") and "=" in s:
+            k = s.split("=", 1)[0].strip()
+            if k in updates:
+                out.append(f"{k}={updates[k]}\n")
+                seen.add(k)
+                continue
+        out.append(line)
+    for k, v in updates.items():
+        if k not in seen:
+            if out and not out[-1].endswith("\n"):
+                out[-1] += "\n"
+            out.append(f"{k}={v}\n")
+    with open(path, "w", encoding="utf-8") as f:
+        f.writelines(out)
+
+
+def _current_value(spec):
+    file_vals = _read_env_file(SETTINGS_ENV_PATH)
+    if spec["name"] in file_vals:
+        return file_vals[spec["name"]]
+    return os.environ.get(spec["name"], spec.get("default", ""))
+
+
+def _check_auth(password):
+    if not SETTINGS_PASSWORD:
+        return not _HAS_SECRETS
+    return password == SETTINGS_PASSWORD
+
+
+@app.post("/api/settings")
+async def api_settings(request: Request):
+    d = await request.json() if await request.body() else {}
+    password = d.get("password") or ""
+    requires = bool(SETTINGS_PASSWORD) or _HAS_SECRETS
+    authorized = _check_auth(password)
+    if requires and not authorized:
+        error = "Contraseña incorrecta" if password else None
+        if not SETTINGS_PASSWORD:
+            error = "Este servicio tiene credenciales pero no hay SETTINGS_PASSWORD configurada. Añádela al .env y reinicia el contenedor."
+        return {"requires_password": True, "authorized": False, "error": error}
+    vars_out = [
+        {"name": v["name"], "value": _current_value(v), "secret": v["secret"], "help": v.get("help", "")}
+        for v in VARS_SPEC
+    ]
+    return {"requires_password": requires, "authorized": True, "vars": vars_out}
+
+
+@app.post("/api/settings/save")
+async def api_settings_save(request: Request):
+    d = await request.json() if await request.body() else {}
+    if not _check_auth(d.get("password") or ""):
+        return JSONResponse({"error": "Contraseña incorrecta"}, status_code=403)
+    known = {v["name"] for v in VARS_SPEC}
+    updates = {k: v for k, v in (d.get("values") or {}).items() if k in known}
+    if not updates:
+        return JSONResponse({"error": "Nada que guardar"}, status_code=400)
+    _write_env_file(SETTINGS_ENV_PATH, updates)
+    return {"ok": True, "message": "Guardado. Reinicia el contenedor (mixxx-info) para aplicar los cambios."}
 
 app.add_middleware(
     CORSMiddleware,
