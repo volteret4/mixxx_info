@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
+import { fetchAirsonicMatch, playAirsonicJukebox } from "../api";
 
 function fmtTime(secs) {
   if (!secs || isNaN(secs)) return "0:00";
@@ -14,6 +15,8 @@ export default function PlayerBar({ song, onClose }) {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [dragging, setDragging] = useState(false);
+  const [airsonicMenuOpen, setAirsonicMenuOpen] = useState(false);
+  const [airsonicBusy, setAirsonicBusy] = useState(false);
 
   // New song → load and autoplay
   useEffect(() => {
@@ -49,6 +52,44 @@ export default function PlayerBar({ song, onClose }) {
     const v = parseFloat(e.target.value);
     setVolume(v);
     if (audioRef.current) audioRef.current.volume = v;
+  }
+
+  async function handleAirsonicJukebox() {
+    setAirsonicMenuOpen(false);
+    setAirsonicBusy(true);
+    try {
+      await playAirsonicJukebox(song.id);
+    } catch (err) {
+      alert("No se pudo reproducir en Airsonic: " + err.message);
+    } finally {
+      setAirsonicBusy(false);
+    }
+  }
+
+  async function handleAirsonicOpen() {
+    setAirsonicMenuOpen(false);
+    setAirsonicBusy(true);
+    try {
+      const match = await fetchAirsonicMatch(song.id);
+      window.open(match.web_url, "_blank");
+    } catch (err) {
+      alert("No se encontró en Airsonic: " + err.message);
+    } finally {
+      setAirsonicBusy(false);
+    }
+  }
+
+  async function handleAirsonicCopyUrl() {
+    setAirsonicMenuOpen(false);
+    setAirsonicBusy(true);
+    try {
+      const match = await fetchAirsonicMatch(song.id);
+      await navigator.clipboard.writeText(match.stream_url);
+    } catch (err) {
+      alert("No se encontró en Airsonic: " + err.message);
+    } finally {
+      setAirsonicBusy(false);
+    }
   }
 
   if (!song) return null;
@@ -91,6 +132,42 @@ export default function PlayerBar({ song, onClose }) {
       >
         {playing ? "⏸" : "▶"}
       </button>
+
+      {/* Airsonic (jukebox) — el contenedor no tiene acceso a los archivos
+          reales, así que el <audio> de arriba casi nunca funciona en un
+          despliegue en servidor; esto reproduce/abre/copia vía Airsonic. */}
+      <div className="relative shrink-0">
+        <button
+          onClick={() => setAirsonicMenuOpen((v) => !v)}
+          disabled={airsonicBusy}
+          className="w-9 h-9 rounded-full bg-zinc-700 hover:bg-zinc-600 text-white flex items-center justify-center text-sm shrink-0 disabled:opacity-50"
+          title="Reproducir vía Airsonic"
+        >
+          {airsonicBusy ? "…" : "📡"}
+        </button>
+        {airsonicMenuOpen && (
+          <div className="absolute bottom-full mb-2 left-0 w-56 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg overflow-hidden z-10 text-xs">
+            <button
+              onClick={handleAirsonicJukebox}
+              className="w-full text-left px-3 py-2 text-zinc-100 hover:bg-zinc-700"
+            >
+              ▶ Reproducir en Airsonic (jukebox)
+            </button>
+            <button
+              onClick={handleAirsonicOpen}
+              className="w-full text-left px-3 py-2 text-zinc-100 hover:bg-zinc-700"
+            >
+              ↗ Abrir en Airsonic
+            </button>
+            <button
+              onClick={handleAirsonicCopyUrl}
+              className="w-full text-left px-3 py-2 text-zinc-100 hover:bg-zinc-700"
+            >
+              ⧉ Copiar URL de streaming
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Seek slider */}
       <div className="flex items-center gap-2 flex-1 min-w-0">

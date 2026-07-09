@@ -3,9 +3,11 @@ FastAPI backend for the mixxx_info music library browser.
 
 Run: uvicorn api.main:app --reload --port 8000
 """
+import hashlib
 import mimetypes
 import os
 import re
+import secrets
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -38,10 +40,11 @@ app = FastAPI(title="mixxx_info")
 SETTINGS_ENV_PATH = Path(__file__).parent.parent / ".env"
 SETTINGS_PASSWORD = os.environ.get("SETTINGS_PASSWORD", "")
 VARS_SPEC = [
-    {"name": "GEMINI_API_KEY", "secret": True, "help": "API key de Gemini (enriquecido de metadatos)"},
     {"name": "LASTFM_API_KEY", "secret": True, "help": "API key de Last.fm"},
     {"name": "DISCOGS_TOKEN", "secret": True, "help": "Token de Discogs"},
-    {"name": "SEARXNG_URL", "secret": False, "default": "http://localhost:8485", "help": "URL de la instancia SearXNG (búsqueda de reseñas)"},
+    {"name": "AIRSONIC_URL", "secret": False, "help": "URL base de Airsonic (para reproducir por jukebox — el contenedor no tiene acceso a los archivos reales)"},
+    {"name": "AIRSONIC_USER", "secret": False, "help": "Usuario Airsonic"},
+    {"name": "AIRSONIC_PASSWORD", "secret": True, "help": "Contraseña Airsonic"},
 ]
 _HAS_SECRETS = any(v.get("secret") for v in VARS_SPEC)
 
@@ -428,6 +431,95 @@ def stream_song(song_id: int):
         raise HTTPException(404, "File not found on disk")
     mime, _ = mimetypes.guess_type(str(path))
     return FileResponse(str(path), media_type=mime or "audio/mpeg")
+
+
+# ── Airsonic (jukebox) ───────────────────────────────────────────────────────
+# El contenedor no tiene acceso a los archivos reales (viven en el host que
+# corre mixxx / Airsonic), así que /api/stream nunca funciona en un
+# despliegue Docker en servidor. En su lugar, para una canción dada,
+# buscamos su equivalente en Airsonic (por artista+título) y ofrecemos:
+# reproducir por jukebox (suena en el equipo de Airsonic), abrir en la web
+# de Airsonic, o copiar la URL de streaming directa. Mismo patrón/auth que
+# trasvase/app.py.
+
+def _airsonic_params(**extra):
+    salt  = secrets.token_hex(8)
+    token = hashlib.md5((os.environ.get("AIRSONIC_PASSWORD", "") + salt).encode()).hexdigest()
+    return {"u": os.environ.get("AIRSONIC_USER", ""), "t": token, "s": salt,
+            "v": "1.16.1", "c": "mixxx_info", "f": "json", **extra}
+
+
+def _airsonic(endpoint: str, **kwargs):
+    airsonic_url = os.environ.get("AIRSONIC_URL", "")
+    if not airsonic_url:
+        raise RuntimeError("AIRSONIC_URL no configurada")
+    url  = f"{airsonic_url}/rest/{endpoint}.view"
+    resp = _req.get(url, params=_airsonic_params(**kwargs), timeout=10)
+    resp.raise_for_status()
+    data = resp.json().get("subsonic-response", {})
+    if data.get("status") != "ok":
+        err = data.get("error", {})
+        raise RuntimeError(err.get("message", "Unknown Airsonic error"))
+    return data
+
+
+def _airsonic_find_song(artist: str, title: str):
+    """Busca en Airsonic la canción que mejor coincide con artista+título."""
+    data  = _airsonic("search3", query=f"{artist} {title}".strip(), songCount=10, albumCount=0, artistCount=0)
+    songs = data.get("searchResult3", {}).get("song", [])
+    if not songs:
+        return None
+    title_l = (title or "").strip().lower()
+    for s in songs:
+        if (s.get("title") or "").strip().lower() == title_l:
+            return s
+    return songs[0]
+
+
+@app.get("/api/airsonic/match/{song_id}")
+def airsonic_match(song_id: int):
+    """Busca la canción en Airsonic y devuelve sus datos + URL de streaming directa."""
+    with Session(engine) as session:
+        s = session.get(Song, song_id)
+        if not s:
+            raise HTTPException(404, "Song not found")
+    try:
+        match = _airsonic_find_song(s.artist, s.title)
+    except Exception as exc:
+        raise HTTPException(502, str(exc))
+    if not match:
+        raise HTTPException(404, "No se encontró en Airsonic")
+    airsonic_url = os.environ.get("AIRSONIC_URL", "")
+    stream_url = f"{airsonic_url}/rest/stream.view?" + "&".join(
+        f"{k}={v}" for k, v in _airsonic_params(id=match["id"]).items()
+    )
+    return {
+        "airsonic_id": match["id"],
+        "title": match.get("title"),
+        "artist": match.get("artist"),
+        "web_url": airsonic_url,
+        "stream_url": stream_url,
+    }
+
+
+@app.post("/api/airsonic/jukebox/{song_id}")
+def airsonic_jukebox(song_id: int):
+    """Manda la canción al jukebox de Airsonic (suena en el equipo donde corre Airsonic)."""
+    with Session(engine) as session:
+        s = session.get(Song, song_id)
+        if not s:
+            raise HTTPException(404, "Song not found")
+    try:
+        match = _airsonic_find_song(s.artist, s.title)
+        if not match:
+            raise HTTPException(404, "No se encontró en Airsonic")
+        _airsonic("jukeboxControl", action="set", id=match["id"])
+        _airsonic("jukeboxControl", action="start")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(502, str(exc))
+    return {"success": True, "airsonic_id": match["id"]}
 
 
 # ── Filter metadata ───────────────────────────────────────────────────────────

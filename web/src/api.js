@@ -111,3 +111,11 @@ export function searchSongs(search, taste = []) {
   taste.forEach((t) => qs.append("taste", t));
   return fetch(`${BASE}/songs?${qs}`).then(_json);
 }
+
+export function fetchAirsonicMatch(songId) {
+  return fetch(`${BASE}/airsonic/match/${songId}`).then(_json);
+}
+
+export function playAirsonicJukebox(songId) {
+  return fetch(`${BASE}/airsonic/jukebox/${songId}`, { method: "POST" }).then(_json);
+}
