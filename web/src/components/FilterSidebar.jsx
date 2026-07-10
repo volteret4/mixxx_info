@@ -5,7 +5,7 @@ import { fetchFilterMeta } from "../api.js";
 // Flat ordered list: 1A, 1B, 2A, 2B, ..., 12A, 12B
 const CAMELOT_KEYS = Array.from({ length: 12 }, (_, i) => [`${i + 1}A`, `${i + 1}B`]).flat();
 
-export default function FilterSidebar({ filters, onChange }) {
+export default function FilterSidebar({ filters, onChange, mobileOpen, onClose }) {
   const { data: meta } = useQuery({ queryKey: ["filterMeta"], queryFn: fetchFilterMeta });
 
   function set(key, val) {
@@ -18,8 +18,23 @@ export default function FilterSidebar({ filters, onChange }) {
   }
 
   return (
-    <aside className="w-52 shrink-0 flex flex-col gap-4 overflow-y-auto py-4 px-3 border-r border-zinc-800">
-      <h2 className="font-semibold text-zinc-300 uppercase tracking-wider text-xs">Filtros</h2>
+    <>
+      {/* Backdrop (mobile drawer only) */}
+      {mobileOpen && (
+        <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={onClose} />
+      )}
+
+      <aside
+        className={`fixed md:static inset-y-0 left-0 z-50 md:z-auto
+          w-64 max-w-[85vw] md:w-52 shrink-0 flex flex-col gap-4 overflow-y-auto py-4 px-3
+          border-r border-zinc-800 bg-zinc-950 md:bg-transparent
+          transition-transform duration-200 md:transition-none
+          ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-zinc-300 uppercase tracking-wider text-xs">Filtros</h2>
+          <button onClick={onClose} className="md:hidden text-zinc-400 hover:text-zinc-100 text-base leading-none">✕</button>
+        </div>
 
       {/* Taste / folder */}
       {meta?.tastes?.length > 0 && (
@@ -90,6 +105,7 @@ export default function FilterSidebar({ filters, onChange }) {
       >
         Limpiar filtros
       </button>
-    </aside>
+      </aside>
+    </>
   );
 }

@@ -65,7 +65,7 @@ function SortableRow({ track, onRemove }) {
   );
 }
 
-export default function PlaylistPanel({ pendingTrack, onClearPending }) {
+export default function PlaylistPanel({ pendingTrack, onClearPending, mobileOpen, onClose }) {
   const qc = useQueryClient();
   const [activeId, setActiveId] = useState(null);
   const [newName, setNewName] = useState("");
@@ -131,12 +131,26 @@ export default function PlaylistPanel({ pendingTrack, onClearPending }) {
   const tracks = active?.tracks ?? [];
 
   return (
-    <aside className="w-72 shrink-0 flex flex-col border-l border-zinc-800 overflow-hidden">
+    <>
+      {/* Backdrop (mobile drawer only) */}
+      {mobileOpen && (
+        <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={onClose} />
+      )}
+
+      <aside
+        className={`fixed md:static inset-y-0 right-0 z-50 md:z-auto
+          w-72 max-w-[85vw] shrink-0 flex flex-col border-l border-zinc-800 bg-zinc-950 md:bg-transparent overflow-hidden
+          transition-transform duration-200 md:transition-none
+          ${mobileOpen ? "translate-x-0" : "translate-x-full"} md:translate-x-0`}
+      >
       {/* Playlist list */}
       <div className="px-3 pt-3 pb-2 border-b border-zinc-800">
-        <h2 className="font-semibold text-zinc-300 uppercase tracking-wider text-xs mb-2">
-          Playlists
-        </h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-semibold text-zinc-300 uppercase tracking-wider text-xs">
+            Playlists
+          </h2>
+          <button onClick={onClose} className="md:hidden text-zinc-400 hover:text-zinc-100 text-base leading-none">✕</button>
+        </div>
         <div className="flex flex-col gap-0.5 max-h-36 overflow-y-auto">
           {playlists.map((pl) => (
             <div
@@ -224,6 +238,7 @@ export default function PlaylistPanel({ pendingTrack, onClearPending }) {
       {!activeId && (
         <p className="text-zinc-600 text-xs p-3">Selecciona o crea una playlist</p>
       )}
-    </aside>
+      </aside>
+    </>
   );
 }

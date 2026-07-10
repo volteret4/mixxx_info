@@ -184,7 +184,7 @@ function SeedSearch({ tastes, onSelect }) {
 
 // ── Right: playlist panel ─────────────────────────────────────────────────────
 
-function WizardPlaylistPanel({ playlistId, setPlaylistId, onSelectSeed, currentSong, onPlay }) {
+function WizardPlaylistPanel({ playlistId, setPlaylistId, onSelectSeed, currentSong, onPlay, mobileOpen, onClose }) {
   const qc = useQueryClient();
   const [newName, setNewName] = useState("");
   const { data: playlists = [] } = useQuery({ queryKey: ["playlists"], queryFn: fetchPlaylists });
@@ -211,10 +211,22 @@ function WizardPlaylistPanel({ playlistId, setPlaylistId, onSelectSeed, currentS
   const tracks = playlist?.tracks ?? [];
 
   return (
-    <aside className="w-60 shrink-0 flex flex-col border-l border-zinc-800 bg-zinc-900/30">
+    <>
+      {mobileOpen && (
+        <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={onClose} />
+      )}
+      <aside
+        className={`fixed lg:static inset-y-0 right-0 z-50 lg:z-auto
+          w-72 max-w-[85vw] lg:w-60 shrink-0 flex flex-col border-l border-zinc-800 bg-zinc-950 lg:bg-zinc-900/30
+          transition-transform duration-200 lg:transition-none
+          ${mobileOpen ? "translate-x-0" : "translate-x-full"} lg:translate-x-0`}
+      >
       {/* Playlist selector */}
       <div className="px-3 pt-3 pb-2 border-b border-zinc-800">
-        <p className="text-[11px] text-zinc-400 uppercase tracking-wider mb-1">Playlist</p>
+        <div className="flex items-center justify-between mb-1 lg:block">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider">Playlist</p>
+          <button onClick={onClose} className="lg:hidden text-zinc-400 hover:text-zinc-100 text-base leading-none">✕</button>
+        </div>
         <select
           className="w-full bg-zinc-800 rounded px-2 py-1 text-zinc-100 text-xs mb-2"
           value={playlistId || ""}
@@ -275,7 +287,8 @@ function WizardPlaylistPanel({ playlistId, setPlaylistId, onSelectSeed, currentS
           {tracks.length} pistas · Click en una para usar como semilla
         </div>
       )}
-    </aside>
+      </aside>
+    </>
   );
 }
 
@@ -296,6 +309,8 @@ export default function PlaylistWizard({ onBack }) {
   const [columns, setColumns] = useState([]);
   const [playlistId, setPlaylistId] = useState(null);
   const [currentSong, setCurrentSong] = useState(null);
+  const [collectionsOpen, setCollectionsOpen] = useState(false);
+  const [wizardPlaylistOpen, setWizardPlaylistOpen] = useState(false);
 
   const { data: meta } = useQuery({ queryKey: ["filterMeta"], queryFn: fetchFilterMeta });
 
@@ -370,17 +385,24 @@ export default function PlaylistWizard({ onBack }) {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-zinc-950 text-zinc-100">
       {/* Header */}
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-zinc-800 shrink-0 bg-zinc-900">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4 px-3 sm:px-4 py-2 border-b border-zinc-800 shrink-0 bg-zinc-900">
         <button
           onClick={onBack}
-          className="text-zinc-400 hover:text-zinc-100 text-sm"
+          className="text-zinc-400 hover:text-zinc-100 text-sm shrink-0"
         >
           ← Volver
         </button>
-        <h1 className="text-zinc-200 font-semibold">🧙 Playlist Wizard</h1>
+        <button
+          onClick={() => setCollectionsOpen(true)}
+          className="lg:hidden shrink-0 w-7 h-7 rounded bg-zinc-700 hover:bg-zinc-600 text-white flex items-center justify-center text-sm"
+          title="Colecciones"
+        >
+          ☰
+        </button>
+        <h1 className="text-zinc-200 font-semibold shrink-0">🧙 Playlist Wizard</h1>
 
         {/* Mode toggle + dials — in header for space efficiency */}
-        <div className="flex items-center gap-4 ml-6">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 sm:ml-6">
           <div className="flex rounded overflow-hidden border border-zinc-700">
             <button
               className={`px-3 py-1 text-xs font-semibold transition-colors ${mode === "bpm" ? "bg-yellow-600 text-white" : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"}`}
@@ -406,16 +428,36 @@ export default function PlaylistWizard({ onBack }) {
         </div>
 
         {/* Seed search */}
-        <div className="ml-auto">
+        <div className="w-full sm:w-auto sm:ml-auto">
           <SeedSearch tastes={tastes} onSelect={selectSeed} />
         </div>
+
+        {/* Playlist drawer toggle (mobile/tablet) */}
+        <button
+          onClick={() => setWizardPlaylistOpen(true)}
+          className="lg:hidden shrink-0 w-7 h-7 rounded bg-indigo-700 hover:bg-indigo-600 text-white flex items-center justify-center text-sm"
+          title="Playlist"
+        >
+          🎵
+        </button>
       </div>
 
       {/* Body */}
       <div className="flex flex-1 min-h-0">
         {/* Left: collections */}
-        <aside className="w-44 shrink-0 flex flex-col gap-3 px-3 py-4 border-r border-zinc-800 overflow-y-auto">
-          <p className="text-[11px] text-zinc-400 uppercase tracking-wider">Colecciones</p>
+        {collectionsOpen && (
+          <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={() => setCollectionsOpen(false)} />
+        )}
+        <aside
+          className={`fixed lg:static inset-y-0 left-0 z-50 lg:z-auto
+            w-56 max-w-[85vw] lg:w-44 shrink-0 flex flex-col gap-3 px-3 py-4 border-r border-zinc-800 bg-zinc-950 lg:bg-transparent overflow-y-auto
+            transition-transform duration-200 lg:transition-none
+            ${collectionsOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-zinc-400 uppercase tracking-wider">Colecciones</p>
+            <button onClick={() => setCollectionsOpen(false)} className="lg:hidden text-zinc-400 hover:text-zinc-100 text-base leading-none">✕</button>
+          </div>
           {meta?.tastes?.map((t) => (
             <label key={t} className="flex items-center gap-1.5 cursor-pointer">
               <input
@@ -491,6 +533,8 @@ export default function PlaylistWizard({ onBack }) {
           onSelectSeed={selectSeed}
           currentSong={currentSong}
           onPlay={setCurrentSong}
+          mobileOpen={wizardPlaylistOpen}
+          onClose={() => setWizardPlaylistOpen(false)}
         />
       </div>
 

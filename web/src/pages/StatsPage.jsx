@@ -55,7 +55,7 @@ function Section({ title, children, cols = 1 }) {
   return (
     <div>
       <h3 className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-3">{title}</h3>
-      <div className={`grid gap-4 ${cols === 2 ? "grid-cols-2" : "grid-cols-1"}`}>{children}</div>
+      <div className={`grid gap-4 ${cols === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>{children}</div>
     </div>
   );
 }
@@ -205,10 +205,10 @@ export default function StatsPage({ onBack }) {
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-zinc-950 text-zinc-100">
       {/* Header */}
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-zinc-800 bg-zinc-900 shrink-0">
-        <button onClick={onBack} className="text-zinc-400 hover:text-zinc-100 text-sm">← Volver</button>
-        <h1 className="font-semibold text-zinc-200">📊 Estadísticas</h1>
-        <div className="flex items-center gap-2 ml-4">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4 px-3 sm:px-4 py-2 border-b border-zinc-800 bg-zinc-900 shrink-0">
+        <button onClick={onBack} className="text-zinc-400 hover:text-zinc-100 text-sm shrink-0">← Volver</button>
+        <h1 className="font-semibold text-zinc-200 shrink-0">📊 Estadísticas</h1>
+        <div className="flex flex-wrap items-center gap-2 sm:ml-4">
           <MultiDropdown label="Género" options={tastes} value={taste} onChange={setTaste} />
           <select
             className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded text-xs text-zinc-300"
@@ -228,12 +228,12 @@ export default function StatsPage({ onBack }) {
           )}
         </div>
         {stats && (
-          <span className="ml-auto text-xs text-zinc-500">{stats.total} canciones</span>
+          <span className="sm:ml-auto text-xs text-zinc-500">{stats.total} canciones</span>
         )}
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6">
         {isLoading && (
           <div className="flex items-center justify-center h-64 text-zinc-600">Calculando estadísticas…</div>
         )}
@@ -424,7 +424,7 @@ export default function StatsPage({ onBack }) {
             {/* ── Audio quality + Release metadata ── */}
             <Section title="Calidad de audio y metadatos de release" cols={2}>
               <Card title="Calidad de audio">
-                <div className="grid grid-cols-3 gap-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   <div>
                     <p className="text-zinc-500 mb-2">Sample rate (Hz)</p>
                     <div className="flex flex-col gap-1">
@@ -462,7 +462,7 @@ export default function StatsPage({ onBack }) {
               </Card>
 
               <Card title="Tipo / estado / país de release">
-                <div className="grid grid-cols-3 gap-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   <div>
                     <p className="text-zinc-500 mb-2">Tipo</p>
                     <div className="flex flex-col gap-1">
@@ -500,7 +500,7 @@ export default function StatsPage({ onBack }) {
             {/* ── Coverage overview ── */}
             <Section title="Cobertura de metadatos (todos los campos)">
               <Card title="% de canciones con cada campo relleno" className="col-span-full">
-                <div className="grid grid-cols-2 gap-x-8 gap-y-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
                   {(stats.coverage || [])
                     .slice()
                     .sort((a, b) => b.count - a.count)
@@ -522,7 +522,8 @@ export default function StatsPage({ onBack }) {
             {hasFilters && songsData?.songs?.length > 0 && (
               <Section title={`Canciones incluidas (${songsData.songs.length})`}>
                 <Card title="" className="col-span-full p-0 overflow-hidden">
-                  <table className="w-full text-xs">
+                  <div className="overflow-x-auto">
+                  <table className="w-full text-xs min-w-[640px]">
                     <thead>
                       <tr className="border-b border-zinc-800 text-zinc-500">
                         <th className="text-left px-3 py-2 font-medium">Artista</th>
@@ -550,6 +551,7 @@ export default function StatsPage({ onBack }) {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </Card>
               </Section>
             )}

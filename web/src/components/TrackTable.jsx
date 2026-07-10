@@ -127,7 +127,7 @@ export default function TrackTable({ filters, onFiltersChange, onAdd, onPlay, cu
       </div>
 
       {/* Table */}
-      <div className="overflow-y-auto flex-1">
+      <div className="overflow-auto flex-1">
         {!active ? (
           <div className="flex items-center justify-center h-full text-zinc-700 text-sm select-none">
             Usa los filtros de la izquierda para ver pistas
@@ -172,8 +172,8 @@ export default function TrackTable({ filters, onFiltersChange, onAdd, onPlay, cu
                         <div className="w-7 h-7 bg-zinc-800 rounded" />
                       )}
                     </td>
-                    <td className="px-2 py-1 text-zinc-200 max-w-[10rem] truncate">{s.artist}</td>
-                    <td className="px-2 py-1 text-zinc-100 font-medium max-w-[14rem] truncate">{s.title}</td>
+                    <td className="px-2 py-1 text-zinc-200 max-w-[6rem] sm:max-w-[10rem] truncate">{s.artist}</td>
+                    <td className="px-2 py-1 text-zinc-100 font-medium max-w-[8rem] sm:max-w-[14rem] truncate">{s.title}</td>
                     <td className="px-2 py-1 text-zinc-400 max-w-[12rem] truncate hidden md:table-cell">{s.album}</td>
                     <td className={`px-2 py-1 text-right font-mono font-semibold ${bpmColor(s.bpm)}`}>
                       {s.bpm ? s.bpm.toFixed(1) : ""}

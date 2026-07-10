@@ -97,7 +97,7 @@ export default function PlayerBar({ song, onClose }) {
   const progress = duration ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="h-16 shrink-0 flex items-center gap-3 px-4 border-t border-zinc-800 bg-zinc-900">
+    <div className="h-16 shrink-0 flex items-center gap-2 sm:gap-3 px-2 sm:px-4 border-t border-zinc-800 bg-zinc-900">
       {/* Hidden audio element */}
       <audio
         ref={audioRef}
@@ -120,7 +120,7 @@ export default function PlayerBar({ song, onClose }) {
       )}
 
       {/* Artist / title */}
-      <div className="min-w-0 w-48 shrink-0">
+      <div className="min-w-0 w-24 sm:w-48 shrink-0">
         <p className="text-zinc-100 text-xs font-medium truncate">{song.title}</p>
         <p className="text-zinc-400 text-xs truncate">{song.artist}</p>
       </div>
@@ -146,7 +146,7 @@ export default function PlayerBar({ song, onClose }) {
           {airsonicBusy ? "…" : "📡"}
         </button>
         {airsonicMenuOpen && (
-          <div className="absolute bottom-full mb-2 left-0 w-56 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg overflow-hidden z-10 text-xs">
+          <div className="absolute bottom-full mb-2 left-0 w-48 sm:w-56 max-w-[80vw] bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg overflow-hidden z-10 text-xs">
             <button
               onClick={handleAirsonicJukebox}
               className="w-full text-left px-3 py-2 text-zinc-100 hover:bg-zinc-700"
@@ -170,8 +170,8 @@ export default function PlayerBar({ song, onClose }) {
       </div>
 
       {/* Seek slider */}
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <span className="text-zinc-500 text-xs w-10 text-right shrink-0">{fmtTime(currentTime)}</span>
+      <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+        <span className="text-zinc-500 text-xs w-8 sm:w-10 text-right shrink-0">{fmtTime(currentTime)}</span>
         <div className="relative flex-1 h-1.5 bg-zinc-700 rounded-full">
           <div
             className="absolute top-0 left-0 h-full bg-indigo-500 rounded-full pointer-events-none"
@@ -190,11 +190,11 @@ export default function PlayerBar({ song, onClose }) {
             className="absolute inset-0 w-full opacity-0 cursor-pointer h-full"
           />
         </div>
-        <span className="text-zinc-500 text-xs w-10 shrink-0">{fmtTime(duration)}</span>
+        <span className="text-zinc-500 text-xs w-8 sm:w-10 shrink-0">{fmtTime(duration)}</span>
       </div>
 
       {/* Volume */}
-      <div className="flex items-center gap-1.5 shrink-0 w-24">
+      <div className="hidden sm:flex items-center gap-1.5 shrink-0 w-24">
         <span className="text-zinc-500 text-xs">🔊</span>
         <input
           type="range"

@@ -15,6 +15,8 @@ export default function App() {
   const [filters, setFilters] = useState({ page: 1, perPage: 50, sort: "artist", sortDir: "asc" });
   const [pendingTrack, setPendingTrack] = useState(null);
   const [currentSong, setCurrentSong] = useState(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [playlistOpen, setPlaylistOpen] = useState(false);
 
   function navigateToMusician(name) {
     setPrevView(view);
@@ -41,14 +43,21 @@ export default function App() {
       {view === "library" && (
         <>
           {/* Top bar */}
-          <div className="flex items-center gap-4 px-3 py-1.5 border-b border-zinc-800 bg-zinc-900 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 px-3 py-1.5 border-b border-zinc-800 bg-zinc-900 shrink-0">
+            <button
+              onClick={() => setFilterOpen(true)}
+              className="md:hidden shrink-0 w-7 h-7 rounded bg-zinc-700 hover:bg-zinc-600 text-white flex items-center justify-center text-sm"
+              title="Filtros"
+            >
+              ☰
+            </button>
             <input
-              className="w-56 bg-zinc-800 rounded px-2.5 py-1 text-zinc-100 placeholder-zinc-500 text-xs focus:outline-none focus:ring-1 focus:ring-zinc-600"
+              className="w-full sm:w-56 bg-zinc-800 rounded px-2.5 py-1 text-zinc-100 placeholder-zinc-500 text-xs focus:outline-none focus:ring-1 focus:ring-zinc-600"
               placeholder="Artista, título, álbum, sello, tag…"
               value={filters.search || ""}
               onChange={(e) => setFilter("search", e.target.value)}
             />
-            <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-zinc-400">
               <span>BPM</span>
               <input
                 type="number"
@@ -66,7 +75,7 @@ export default function App() {
                 onChange={(e) => setFilter("bpmMax", e.target.value ? parseFloat(e.target.value) : undefined)}
               />
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-zinc-400">
               <span>Año</span>
               <input
                 type="number"
@@ -84,30 +93,42 @@ export default function App() {
                 onChange={(e) => setFilter("yearMax", e.target.value ? parseInt(e.target.value) : undefined)}
               />
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+              <button
+                onClick={() => setPlaylistOpen(true)}
+                className="md:hidden shrink-0 w-7 h-7 rounded bg-indigo-700 hover:bg-indigo-600 text-white flex items-center justify-center text-sm"
+                title="Playlists"
+              >
+                🎵
+              </button>
               <button
                 onClick={() => setView("covers")}
-                className="flex items-center gap-1.5 px-3 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-white text-xs font-semibold"
+                className="flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-white text-xs font-semibold"
               >
-                🖼️ Portadas
+                🖼️ <span className="hidden sm:inline">Portadas</span>
               </button>
               <button
                 onClick={() => setView("stats")}
-                className="flex items-center gap-1.5 px-3 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-white text-xs font-semibold"
+                className="flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-white text-xs font-semibold"
               >
-                📊 Estadísticas
+                📊 <span className="hidden sm:inline">Estadísticas</span>
               </button>
               <button
                 onClick={() => setView("wizard")}
-                className="flex items-center gap-1.5 px-3 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-semibold"
+                className="flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-semibold"
               >
-                🧙 Playlist Wizard
+                🧙 <span className="hidden sm:inline">Playlist Wizard</span>
               </button>
             </div>
           </div>
 
           <div className="flex flex-1 min-h-0">
-            <FilterSidebar filters={filters} onChange={setFilters} />
+            <FilterSidebar
+              filters={filters}
+              onChange={setFilters}
+              mobileOpen={filterOpen}
+              onClose={() => setFilterOpen(false)}
+            />
             <TrackTable
               filters={filters}
               onFiltersChange={setFilters}
@@ -118,6 +139,8 @@ export default function App() {
             <PlaylistPanel
               pendingTrack={pendingTrack}
               onClearPending={() => setPendingTrack(null)}
+              mobileOpen={playlistOpen}
+              onClose={() => setPlaylistOpen(false)}
             />
           </div>
         </>

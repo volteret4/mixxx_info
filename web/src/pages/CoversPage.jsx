@@ -324,7 +324,7 @@ function DetailPanel({ songId, onPlay, currentSongId, onMusicianClick }) {
 
 // ── Left filter sidebar ───────────────────────────────────────────────────
 
-function Sidebar({ filters, onChange, meta }) {
+function Sidebar({ filters, onChange, meta, mobileOpen, onClose }) {
   function set(key, val) { onChange({ ...filters, [key]: val }); }
 
   function toggleTaste(t) {
@@ -333,7 +333,21 @@ function Sidebar({ filters, onChange, meta }) {
   }
 
   return (
-    <aside className="w-52 shrink-0 flex flex-col gap-4 overflow-y-auto py-4 px-3 border-r border-zinc-800">
+    <>
+      {mobileOpen && (
+        <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={onClose} />
+      )}
+      <aside
+        className={`fixed md:static inset-y-0 left-0 z-50 md:z-auto
+          w-64 max-w-[85vw] md:w-52 shrink-0 flex flex-col gap-4 overflow-y-auto py-4 px-3
+          border-r border-zinc-800 bg-zinc-950 md:bg-transparent
+          transition-transform duration-200 md:transition-none
+          ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
+      >
+        <div className="flex items-center justify-between md:hidden">
+          <h2 className="font-semibold text-zinc-300 uppercase tracking-wider text-xs">Filtros</h2>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-100 text-base leading-none">✕</button>
+        </div>
       {/* Search */}
       <input
         className="w-full bg-zinc-800 rounded px-2.5 py-1 text-zinc-100 placeholder-zinc-500 text-xs focus:outline-none focus:ring-1 focus:ring-zinc-600"
@@ -485,7 +499,8 @@ function Sidebar({ filters, onChange, meta }) {
       >
         Limpiar filtros
       </button>
-    </aside>
+      </aside>
+    </>
   );
 }
 
@@ -494,6 +509,7 @@ function Sidebar({ filters, onChange, meta }) {
 export default function CoversPage({ onBack, onPlay, currentSong, onMusicianClick }) {
   const [filters, setFilters] = useState({ sort: "artist", sortDir: "asc" });
   const [selectedId, setSelectedId] = useState(null);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const { data: meta } = useQuery({ queryKey: ["filterMeta"], queryFn: fetchFilterMeta });
 
@@ -510,15 +526,22 @@ export default function CoversPage({ onBack, onPlay, currentSong, onMusicianClic
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-zinc-950 text-zinc-100">
       {/* Header */}
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-zinc-800 bg-zinc-900 shrink-0">
-        <button onClick={onBack} className="text-zinc-400 hover:text-zinc-100 text-sm">← Volver</button>
-        <h1 className="font-semibold text-zinc-200">🖼️ Portadas</h1>
+      <div className="flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-2 border-b border-zinc-800 bg-zinc-900 shrink-0">
+        <button onClick={onBack} className="text-zinc-400 hover:text-zinc-100 text-sm shrink-0">← Volver</button>
+        <button
+          onClick={() => setFilterOpen(true)}
+          className="md:hidden shrink-0 w-7 h-7 rounded bg-zinc-700 hover:bg-zinc-600 text-white flex items-center justify-center text-sm"
+          title="Filtros"
+        >
+          ☰
+        </button>
+        <h1 className="font-semibold text-zinc-200 truncate">🖼️ Portadas</h1>
         {data && (
-          <span className="text-xs text-zinc-500">{data.total} canciones</span>
+          <span className="hidden sm:inline text-xs text-zinc-500">{data.total} canciones</span>
         )}
         {selectedId && (
           <button
-            className="ml-auto text-xs text-zinc-500 hover:text-zinc-300"
+            className="ml-auto text-xs text-zinc-500 hover:text-zinc-300 shrink-0"
             onClick={() => setSelectedId(null)}
           >
             Cerrar detalle ✕
@@ -528,7 +551,7 @@ export default function CoversPage({ onBack, onPlay, currentSong, onMusicianClic
 
       <div className="flex flex-1 min-h-0">
         {/* Left filters */}
-        <Sidebar filters={filters} onChange={setFilters} meta={meta} />
+        <Sidebar filters={filters} onChange={setFilters} meta={meta} mobileOpen={filterOpen} onClose={() => setFilterOpen(false)} />
 
         {/* Cover grid */}
         <div className="flex-1 overflow-y-auto p-4">
@@ -560,14 +583,17 @@ export default function CoversPage({ onBack, onPlay, currentSong, onMusicianClic
 
         {/* Right detail panel */}
         {selectedId && (
-          <aside className="w-72 shrink-0 border-l border-zinc-800 overflow-hidden flex flex-col">
-            <DetailPanel
-              songId={selectedId}
-              onPlay={onPlay}
-              currentSongId={currentSong?.id}
-              onMusicianClick={onMusicianClick}
-            />
-          </aside>
+          <>
+            <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={() => setSelectedId(null)} />
+            <aside className="fixed md:static inset-y-0 right-0 z-50 md:z-auto w-80 max-w-[85vw] md:w-72 shrink-0 border-l border-zinc-800 bg-zinc-950 md:bg-transparent overflow-hidden flex flex-col">
+              <DetailPanel
+                songId={selectedId}
+                onPlay={onPlay}
+                currentSongId={currentSong?.id}
+                onMusicianClick={onMusicianClick}
+              />
+            </aside>
+          </>
         )}
       </div>
     </div>

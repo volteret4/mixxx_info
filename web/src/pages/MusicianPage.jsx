@@ -419,16 +419,16 @@ export default function MusicianPage({ name, onBack, onPlay, currentSong, onMusi
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-zinc-950 text-zinc-100">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-zinc-800 bg-zinc-900 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 border-b border-zinc-800 bg-zinc-900 shrink-0">
         <button onClick={onBack} className="text-zinc-400 hover:text-zinc-100 text-sm shrink-0">← Volver</button>
         <span className="text-base">👤</span>
         <h1 className="font-semibold text-zinc-100 truncate">{name}</h1>
-        <div className="flex gap-1.5 shrink-0">
+        <div className="hidden sm:flex gap-1.5 shrink-0">
           {roles.map(r => (
             <span key={r} className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300">{r}</span>
           ))}
         </div>
-        <span className="ml-auto text-xs text-zinc-600 shrink-0">{totalLib} canciones en biblioteca</span>
+        <span className="sm:ml-auto text-xs text-zinc-600 shrink-0">{totalLib} canciones en biblioteca</span>
       </div>
 
       {isLoading && (
@@ -436,9 +436,9 @@ export default function MusicianPage({ name, onBack, onPlay, currentSong, onMusi
       )}
 
       {data && (
-        <div className="flex flex-1 min-h-0">
+        <div className="flex flex-col md:flex-row flex-1 min-h-0">
           {/* Left: concept map */}
-          <div className="flex-1 min-w-0 overflow-hidden p-2 flex flex-col gap-2">
+          <div className="flex-1 min-w-0 min-h-[45vh] md:min-h-0 overflow-hidden p-2 flex flex-col gap-2">
             <p className="text-[10px] text-zinc-600 px-2">
               Haz clic en un nodo para explorar ese músico · los nodos sólidos son de tu biblioteca · punteados de Discogs
             </p>
@@ -452,10 +452,11 @@ export default function MusicianPage({ name, onBack, onPlay, currentSong, onMusi
           </div>
 
           {/* Divider */}
-          <div className="w-px bg-zinc-800 shrink-0" />
+          <div className="hidden md:block w-px bg-zinc-800 shrink-0" />
+          <div className="md:hidden h-px bg-zinc-800 shrink-0" />
 
           {/* Right: tabbed panel */}
-          <div className="w-88 shrink-0 overflow-hidden flex flex-col" style={{ width: "22rem" }}>
+          <div className="md:shrink-0 overflow-hidden flex flex-col flex-1 md:flex-none min-h-0 md:w-[22rem]">
             <RightPanel data={data} onPlay={onPlay} currentSong={currentSong} />
           </div>
         </div>
