@@ -26,6 +26,12 @@ from src.db import get_engine, init_db, Song, Playlist, PlaylistTrack
 
 DB_URL = "sqlite:///library.db"
 COVERS_DIR = Path("covers")
+# Sincronizado por Syncthing (carpeta "Mixxx Playlists", separada de la
+# colección de audio) hacia el directorio local que Mixxx tiene añadido
+# como carpeta de biblioteca -- al reescanear, Mixxx detecta los .m3u ahí
+# dentro y los importa/actualiza como playlists automáticamente.
+PLAYLISTS_DIR = Path("playlists")
+PLAYLISTS_DIR.mkdir(parents=True, exist_ok=True)
 
 engine = get_engine(DB_URL)
 init_db(engine)
@@ -569,6 +575,30 @@ class ReorderBody(BaseModel):
     song_ids: list[int]
 
 
+def _safe_playlist_filename(name: str) -> str:
+    safe = re.sub(r'[\\/:*?"<>|]', "_", name).strip() or "playlist"
+    return f"{safe}.m3u"
+
+
+def _m3u_content(pl: Playlist) -> str:
+    lines = ["#EXTM3U"]
+    for pt in sorted(pl.tracks, key=lambda pt: pt.position):
+        s = pt.song
+        dur = int(s.duration or -1)
+        display = f"{s.artist or ''} - {s.title or ''}"
+        lines.append(f"#EXTINF:{dur},{display}")
+        lines.append(s.file_path)
+    return "\n".join(lines) + "\n"
+
+
+def _write_playlist_file(pl: Playlist) -> None:
+    (PLAYLISTS_DIR / _safe_playlist_filename(pl.name)).write_text(_m3u_content(pl), encoding="utf-8")
+
+
+def _delete_playlist_file(name: str) -> None:
+    (PLAYLISTS_DIR / _safe_playlist_filename(name)).unlink(missing_ok=True)
+
+
 def _playlist_dict(pl: Playlist) -> dict:
     return {
         "id": pl.id,
@@ -596,6 +626,7 @@ def create_playlist(body: PlaylistCreate):
         session.add(pl)
         session.commit()
         session.refresh(pl)
+        _write_playlist_file(pl)
         return {"id": pl.id, "name": pl.name, "created_at": pl.created_at, "track_count": 0, "tracks": []}
 
 
@@ -614,8 +645,12 @@ def rename_playlist(playlist_id: int, body: PlaylistRename):
         pl = session.get(Playlist, playlist_id)
         if not pl:
             raise HTTPException(404, "Playlist not found")
+        old_name = pl.name
         pl.name = body.name
         session.commit()
+        if old_name != pl.name:
+            _delete_playlist_file(old_name)
+        _write_playlist_file(pl)
         return {"id": pl.id, "name": pl.name}
 
 
@@ -625,8 +660,10 @@ def delete_playlist(playlist_id: int):
         pl = session.get(Playlist, playlist_id)
         if not pl:
             raise HTTPException(404, "Playlist not found")
+        name = pl.name
         session.delete(pl)
         session.commit()
+        _delete_playlist_file(name)
 
 
 @app.post("/api/playlists/{playlist_id}/tracks", status_code=201)
@@ -642,6 +679,7 @@ def add_track(playlist_id: int, body: TrackAdd):
         pt = PlaylistTrack(playlist_id=playlist_id, song_id=body.song_id, position=max_pos + 1)
         session.add(pt)
         session.commit()
+        _write_playlist_file(pl)
         return {"ok": True}
 
 
@@ -652,8 +690,10 @@ def remove_track(playlist_id: int, song_id: int):
             playlist_id=playlist_id, song_id=song_id
         ).first()
         if pt:
+            pl = session.get(Playlist, playlist_id)
             session.delete(pt)
             session.commit()
+            _write_playlist_file(pl)
 
 
 @app.put("/api/playlists/{playlist_id}/tracks/reorder")
@@ -667,6 +707,7 @@ def reorder_tracks(playlist_id: int, body: ReorderBody):
             if pt.song_id in pos_map:
                 pt.position = pos_map[pt.song_id]
         session.commit()
+        _write_playlist_file(pl)
         return {"ok": True}
 
 
