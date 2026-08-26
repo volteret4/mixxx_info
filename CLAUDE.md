@@ -75,3 +75,33 @@ Each track record must include:
 ## AI Guidance
 
 When writing enrichment scripts, always make the Gemini prompt request a strict JSON response with a `sources` array. Design UI minimalistically — fast-read, Discogs-inspired layout.
+
+## Playlists → Mixxx (Syncthing)
+
+`api/main.py`'s playlist endpoints (`POST/PATCH/DELETE /api/playlists*`) write
+an `.m3u` file to `PLAYLISTS_DIR` (`playlists/`, bind-mounted in
+`docker-compose.yml`) on every mutation — create, rename (deletes the old
+filename, writes the new one), add/remove/reorder tracks, delete. No manual
+"export" step needed; the UI (`PlaylistPanel.jsx`) already calls these same
+endpoints for its normal CRUD actions.
+
+That `playlists/` directory is one side of a **dedicated Syncthing folder**
+("Mixxx Playlists", id `mixxx-playlists`, `sendreceive` on both ends) —
+deliberately separate from the existing "Mixxx" folder (`sendonly` on the
+laptop / `receiveonly` on pepecono) that mirrors the actual audio
+collection. That asymmetry is intentional: it protects the real collection
+from ever being touched by something running on the server. The playlists
+folder carries none of that risk (just small `.m3u` text files), so it's
+safe to be fully bidirectional.
+
+On the laptop side, the synced path is `/mnt/windows/Mix_Playlists` — for
+Mixxx to actually pick these up, that path needs to be added as a music
+directory in Mixxx's own Preferences → Library (one-time manual step; Mixxx
+auto-detects and imports/updates `.m3u`/`.pls` files inside directories it
+already has added, on library rescan/startup — it does not watch arbitrary
+folders on its own).
+
+`Song.file_path` is captured at scan time from `/mnt/windows/Mix` (the
+laptop's real path, see Phase A above), so the paths written into each
+`.m3u` are already correct, native local paths for Mixxx — no rewriting
+needed between the container's view and the laptop's.
