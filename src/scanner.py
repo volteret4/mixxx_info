@@ -88,10 +88,13 @@ def extract_tags(path: Path) -> dict:
 
 
 def get_folder_taste(path: Path, root: Path) -> str:
-    """Top-level subfolder under root encodes the user's taste/mood label."""
+    """Subfolder path under root (excluding the filename) encodes the
+    user's taste/mood label. Joined with "/" so nested sub-genre folders
+    (e.g. techno/techno_trance, 6_house/house_deep) stay distinguishable
+    instead of collapsing into their parent folder."""
     try:
         parts = path.relative_to(root).parts
-        return parts[0] if len(parts) > 1 else "root"
+        return "/".join(parts[:-1]) if len(parts) > 1 else "root"
     except ValueError:
         return "unknown"
 

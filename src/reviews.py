@@ -13,9 +13,14 @@ import random
 import threading
 import urllib.parse
 
-import nodriver as uc
 import requests
 from bs4 import BeautifulSoup
+
+# nodriver importado de forma perezosa (ver _get_browser) -- algunas
+# versiones de PyPI traen un byte no-UTF-8 en cdp/network.py que revienta
+# el import a nivel de módulo; comandos que no tocan reviews.py (scan,
+# enrich --skip-enrich, query, prune-stale...) no deben depender de que
+# nodriver esté instalable para poder correr.
 
 _SEARXNG_URL = os.environ.get("SEARXNG_URL", "http://localhost:8485")
 
@@ -45,6 +50,7 @@ async def _get_browser():
     global _browser
     with _browser_lock:
         if _browser is None:
+            import nodriver as uc
             _browser = await uc.start(headless=True)
     return _browser
 
