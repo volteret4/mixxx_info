@@ -14,3 +14,4 @@ library.json
 library.json.BAK
 node_modules/
 dist/
+.venv*/

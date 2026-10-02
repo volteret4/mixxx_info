@@ -43,7 +43,14 @@ def scan(root, output, fingerprint_all):
 @click.option("--db", default="sqlite:///library.db", show_default=True)
 @click.option("--limit", default=0, help="Max tracks to process (0 = all).")
 @click.option("--skip-whosampled", is_flag=True, help="Skip WhoSampled scraping.")
-def enrich(input_file, db, limit, skip_whosampled):
+@click.option(
+    "--skip-enrich", is_flag=True,
+    help="Only upsert local scan fields (file_path, folder_taste, tags...) — "
+         "no MusicBrainz/Discogs/Last.fm/WhoSampled calls. Fast resync after "
+         "re-scanning (e.g. folder reorganization) without re-hitting APIs "
+         "for tracks that are already enriched.",
+)
+def enrich(input_file, db, limit, skip_whosampled, skip_enrich):
     """Phase B: Enrich via MusicBrainz, Discogs, Last.fm, WhoSampled."""
     engine = get_engine(db)
     init_db(engine)
@@ -52,6 +59,16 @@ def enrich(input_file, db, limit, skip_whosampled):
         tracks = json.load(f)
     if limit:
         tracks = tracks[:limit]
+
+    if skip_enrich:
+        with Session(engine) as session:
+            for i, track in enumerate(tracks, 1):
+                song = upsert_song(session, track)
+                label = f"{song.artist or '?'} — {song.title or song.file_path}"
+                click.echo(f"[{i}/{len(tracks)}] {label}")
+            session.commit()
+        click.echo("Done (local fields only, no external enrichment).")
+        return
 
     _reviews.start_browser()
     try:
