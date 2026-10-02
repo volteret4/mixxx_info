@@ -106,6 +106,22 @@ class Song(Base):
     acoustid_fingerprint = Column(Text)
 
 
+class Recommendation(Base):
+    """Recomendaciones manuales por cajón (carpeta/subgénero), para la
+    pestaña "Recomendaciones" de la web. `crate` es una clave propia y
+    estable (ej. "techno_acid"), independiente de `Song.folder_taste"
+    -- no requiere que la biblioteca se haya rescaneado para cuadrar."""
+    __tablename__ = "recommendations"
+
+    id = Column(Integer, primary_key=True)
+    crate = Column(String, nullable=False)        # "techno", "techno_acid", "house_funk", ...
+    crate_label = Column(String, nullable=False)  # "Techno", "Techno — Acid", ...
+    artist = Column(String, nullable=False)
+    reference = Column(String)   # álbum/track/sello recomendado
+    note = Column(String)        # por qué encaja, una línea
+    position = Column(Integer, default=0)
+
+
 class Playlist(Base):
     __tablename__ = "playlists"
 

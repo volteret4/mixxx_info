@@ -28,6 +28,10 @@ export function fetchFilterMeta() {
   return fetch(`${BASE}/filters/meta`).then(_json);
 }
 
+export function fetchRecommendations() {
+  return fetch(`${BASE}/recommendations`).then(_json);
+}
+
 export function fetchPlaylists() {
   return fetch(`${BASE}/playlists`).then(_json);
 }
