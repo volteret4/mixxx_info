@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from sqlalchemy import or_, func, String
 from sqlalchemy.orm import Session
 
-from src.db import get_engine, init_db, Song, Playlist, PlaylistTrack, Recommendation
+from src.db import get_engine, init_db, Song, Playlist, PlaylistTrack
 
 DB_URL = "sqlite:///library.db"
 COVERS_DIR = Path("covers")
@@ -555,41 +555,6 @@ def filter_meta():
             "bpm_range": [bpm_row[0] or 60, bpm_row[1] or 200] if bpm_row else [60, 200],
             "year_range": [int(year_row[0] or 1950), int(year_row[1] or 2025)] if year_row else [1950, 2025],
         }
-
-
-# Orden de presentación pedido explícitamente: techno + sus subcajones,
-# house + los suyos, luego idm -- no alfabético (eso mezclaría los grupos).
-# Cualquier `crate` nuevo que no esté aquí se añade al final, en el orden
-# en que lo devuelva la consulta.
-RECOMMENDATION_CRATE_ORDER = [
-    "techno", "techno_acid", "techno_deep", "techno_dub", "techno_groove",
-    "techno_melodic", "techno_minimal", "techno_trance",
-    "house", "house_dream", "house_funk", "house_gospel", "house_trance", "house_deep",
-    "idm",
-]
-
-
-@app.get("/api/recommendations")
-def get_recommendations():
-    """Recomendaciones manuales por cajón (ver src/db.py::Recommendation,
-    rellenadas por seed_recommendations.py) -- independientes de
-    Song.folder_taste, agrupadas por `crate`."""
-    with Session(engine) as session:
-        rows = (
-            session.query(Recommendation)
-            .order_by(Recommendation.crate, Recommendation.position)
-            .all()
-        )
-        grouped: dict[str, dict] = {}
-        for r in rows:
-            if r.crate not in grouped:
-                grouped[r.crate] = {"label": r.crate_label, "items": []}
-            grouped[r.crate]["items"].append(
-                {"artist": r.artist, "reference": r.reference, "note": r.note}
-            )
-        order = [c for c in RECOMMENDATION_CRATE_ORDER if c in grouped]
-        order += [c for c in grouped if c not in order]
-        return {"order": order, "crates": grouped}
 
 
 # ── Playlists API ─────────────────────────────────────────────────────────────
