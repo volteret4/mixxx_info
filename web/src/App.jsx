@@ -7,9 +7,10 @@ import PlaylistWizard from "./pages/PlaylistWizard.jsx";
 import StatsPage from "./pages/StatsPage.jsx";
 import CoversPage from "./pages/CoversPage.jsx";
 import MusicianPage from "./pages/MusicianPage.jsx";
+import RelationsPage from "./pages/RelationsPage.jsx";
 
 export default function App() {
-  const [view, setView] = useState("library"); // "library" | "wizard" | "stats" | "covers" | "musician"
+  const [view, setView] = useState("library"); // "library" | "wizard" | "stats" | "covers" | "musician" | "relations"
   const [prevView, setPrevView] = useState("library");
   const [musicianName, setMusicianName] = useState(null);
   const [filters, setFilters] = useState({ page: 1, perPage: 50, sort: "artist", sortDir: "asc" });
@@ -114,6 +115,12 @@ export default function App() {
                 📊 <span className="hidden sm:inline">Estadísticas</span>
               </button>
               <button
+                onClick={() => setView("relations")}
+                className="flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-white text-xs font-semibold"
+              >
+                🔗 <span className="hidden sm:inline">Relaciones</span>
+              </button>
+              <button
                 onClick={() => setView("wizard")}
                 className="flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-semibold"
               >
@@ -157,6 +164,10 @@ export default function App() {
           currentSong={currentSong}
           onMusicianClick={navigateToMusician}
         />
+      )}
+
+      {view === "relations" && (
+        <RelationsPage onBack={() => setView("library")} />
       )}
 
       {view === "musician" && (

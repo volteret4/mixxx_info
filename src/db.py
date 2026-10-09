@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import create_engine, Column, String, Integer, Float, JSON, Text, ForeignKey
+from sqlalchemy import create_engine, Column, String, Integer, Float, JSON, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Session, relationship
 
 
@@ -129,6 +129,30 @@ class PlaylistTrack(Base):
     position = Column(Integer, nullable=False, default=0)
     playlist = relationship("Playlist", back_populates="tracks")
     song = relationship("Song")
+
+
+class SongRelation(Base):
+    """Una transición curada a mano entre dos canciones ("A mezcla bien con B"),
+    creada desde el script de escritorio `relacionar_mix.py` (fuera de este
+    repo, en ~/Scripts/Musica/MoverMusica/). Se identifica por artista+título
+    (no por file_path: mover_mix_playerctl.py renombra/mueve los ficheros al
+    reclasificarlos, así que un path no sigue siendo válido con el tiempo);
+    from_path/to_path solo guardan el último path conocido, a título informativo.
+    """
+    __tablename__ = "song_relations"
+    __table_args__ = (
+        UniqueConstraint("from_artist", "from_title", "to_artist", "to_title", name="uq_song_relations_edge"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    from_artist = Column(String, nullable=False)
+    from_title = Column(String, nullable=False)
+    from_path = Column(String)
+    to_artist = Column(String, nullable=False)
+    to_title = Column(String, nullable=False)
+    to_path = Column(String)
+    comment = Column(String)
+    created_at = Column(String, default=lambda: datetime.utcnow().isoformat())
 
 
 def get_engine(db_url: str = "sqlite:///library.db"):

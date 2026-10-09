@@ -105,3 +105,34 @@ folders on its own).
 laptop's real path, see Phase A above), so the paths written into each
 `.m3u` are already correct, native local paths for Mixxx — no rewriting
 needed between the container's view and the laptop's.
+
+## Mix relations ("A mezcla bien con B") → pestaña "🔗 Relaciones"
+
+Curadas a mano desde el portátil con `relacionar_mix.py`
+(`~/Scripts/Musica/MoverMusica/relacionar_mix.py`, fuera de este repo — un
+script hermano de `mover_mix_playerctl.py`, que ahora lo lanza con
+Shift+Enter/Ctrl+Enter desde su diálogo de comentario). Abre una ventana
+flotante con la canción que suena como nodo central y, a cada lado, las
+canciones que ya se han marcado como "antes"/"después" de ella, con un botón
+para añadir más (busca en cualquier subcarpeta de `/mnt/windows/Mix`, no solo
+en la carpeta actual) y para copiar el fragmento como `graph LR` de Mermaid.
+
+Escribe directamente en este mismo `library.db`, tabla `song_relations`
+(modelo `SongRelation` en `src/db.py`) — por eso basta con que el fichero
+llegue al servidor (el mismo proceso manual que ya usas para desplegar
+`library.db`) para que la web las vea, sin paso de sincronización aparte.
+
+Las aristas se identifican por **artista+título, no por ruta**:
+`mover_mix_playerctl.py` renombra y mueve ficheros al reclasificarlos, así
+que un path no es un identificador estable con el tiempo; `from_path`/`to_path`
+solo se guardan a título informativo (último path conocido). La API
+(`GET/POST/DELETE /api/relations`, en `api/main.py`) enriquece cada nodo
+cruzando por artista+título contra `songs` cuando existe coincidencia (cover,
+bpm, camelot...), pero no depende de que exista: una canción recién añadida a
+Mix y aún no escaneada se relaciona igual.
+
+La web (`RelationsPage.jsx`) renderiza el grafo completo como un diagrama de
+Mermaid (`graph LR`), cargado perezosamente (`import("mermaid")` dentro de un
+`useEffect`, no en el bundle principal — mermaid empaqueta todos sus tipos de
+diagrama y pesa ~75 KB gzip solo el núcleo) para no penalizar el resto de
+pestañas, que se abren muchas más veces.

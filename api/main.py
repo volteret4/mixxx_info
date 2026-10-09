@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from sqlalchemy import or_, func, String
 from sqlalchemy.orm import Session
 
-from src.db import get_engine, init_db, Song, Playlist, PlaylistTrack
+from src.db import get_engine, init_db, Song, Playlist, PlaylistTrack, SongRelation
 
 DB_URL = "sqlite:///library.db"
 COVERS_DIR = Path("covers")
@@ -725,6 +725,101 @@ def export_m3u(playlist_id: int):
             lines.append(f"#EXTINF:{dur},{display}")
             lines.append(s.file_path)
         return PlainTextResponse("\n".join(lines), media_type="audio/x-mpegurl")
+
+
+# ── Song relations API ───────────────────────────────────────────────────────
+# Las aristas las crea `relacionar_mix.py` (script de escritorio, fuera de
+# este repo — ver mixxx_info/CLAUDE.md) escribiendo directamente en este
+# library.db; aquí solo se exponen para que la web las muestre/gestione.
+# Identificadas por artista+título, no por path (ver nota en src/db.py).
+
+class RelationCreate(BaseModel):
+    from_artist: str
+    from_title: str
+    from_path: str | None = None
+    to_artist: str
+    to_title: str
+    to_path: str | None = None
+    comment: str | None = None
+
+
+def _find_song_by_artist_title(session: Session, artist: str, title: str) -> Song | None:
+    if not artist or not title:
+        return None
+    return (
+        session.query(Song)
+        .filter(func.lower(Song.artist) == artist.lower(), func.lower(Song.title) == title.lower())
+        .first()
+    )
+
+
+def _relation_node_dict(session: Session, artist: str, title: str, path: str | None) -> dict:
+    song = _find_song_by_artist_title(session, artist, title)
+    return {
+        "artist": artist,
+        "title": title,
+        "path": path,
+        "song_id": song.id if song else None,
+        "cover_art_path": song.cover_art_path if song else None,
+        "bpm": song.bpm if song else None,
+        "camelot": to_camelot(song.key_signature) if song else None,
+    }
+
+
+def _relation_dict(session: Session, r: SongRelation) -> dict:
+    return {
+        "id": r.id,
+        "comment": r.comment,
+        "created_at": r.created_at,
+        "from": _relation_node_dict(session, r.from_artist, r.from_title, r.from_path),
+        "to": _relation_node_dict(session, r.to_artist, r.to_title, r.to_path),
+    }
+
+
+@app.get("/api/relations")
+def list_relations(artist: str = Query(""), title: str = Query("")):
+    """Sin artist/title: el grafo completo. Con ambos: solo aristas que tocan esa canción."""
+    with Session(engine) as session:
+        q = session.query(SongRelation)
+        if artist and title:
+            al, tl = artist.lower(), title.lower()
+            q = q.filter(or_(
+                (func.lower(SongRelation.from_artist) == al) & (func.lower(SongRelation.from_title) == tl),
+                (func.lower(SongRelation.to_artist) == al) & (func.lower(SongRelation.to_title) == tl),
+            ))
+        rows = q.order_by(SongRelation.created_at).all()
+        return [_relation_dict(session, r) for r in rows]
+
+
+@app.post("/api/relations", status_code=201)
+def create_relation(body: RelationCreate):
+    with Session(engine) as session:
+        existing = session.query(SongRelation).filter(
+            func.lower(SongRelation.from_artist) == body.from_artist.lower(),
+            func.lower(SongRelation.from_title) == body.from_title.lower(),
+            func.lower(SongRelation.to_artist) == body.to_artist.lower(),
+            func.lower(SongRelation.to_title) == body.to_title.lower(),
+        ).first()
+        if existing:
+            return _relation_dict(session, existing)
+        r = SongRelation(
+            from_artist=body.from_artist, from_title=body.from_title, from_path=body.from_path,
+            to_artist=body.to_artist, to_title=body.to_title, to_path=body.to_path,
+            comment=body.comment, created_at=datetime.utcnow().isoformat(),
+        )
+        session.add(r)
+        session.commit()
+        session.refresh(r)
+        return _relation_dict(session, r)
+
+
+@app.delete("/api/relations/{relation_id}", status_code=204)
+def delete_relation(relation_id: int):
+    with Session(engine) as session:
+        r = session.get(SongRelation, relation_id)
+        if r:
+            session.delete(r)
+            session.commit()
 
 
 # ── Statistics ────────────────────────────────────────────────────────────────

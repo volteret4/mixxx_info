@@ -119,3 +119,14 @@ export function fetchAirsonicMatch(songId) {
 export function playAirsonicJukebox(songId) {
   return fetch(`${BASE}/airsonic/jukebox/${songId}`, { method: "POST" }).then(_json);
 }
+
+export function fetchRelations({ artist, title } = {}) {
+  const qs = new URLSearchParams();
+  if (artist) qs.set("artist", artist);
+  if (title) qs.set("title", title);
+  return fetch(`${BASE}/relations?${qs}`).then(_json);
+}
+
+export function deleteRelation(id) {
+  return fetch(`${BASE}/relations/${id}`, { method: "DELETE" });
+}
