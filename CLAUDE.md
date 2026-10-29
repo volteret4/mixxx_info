@@ -21,6 +21,9 @@ python main.py enrich [--input library.json] [--limit 50]
 # Phase C — fill gaps with Gemini AI
 python main.py ai-enrich [--limit 50]
 
+# Daily job on pepecono (Ofelia): scan + enrich only new tracks + prune
+python main.py update
+
 # Quick DB query
 python main.py query --artist "Daft Punk" --taste "Electronic"
 ```
@@ -136,3 +139,20 @@ Mermaid (`graph LR`), cargado perezosamente (`import("mermaid")` dentro de un
 `useEffect`, no en el bundle principal — mermaid empaqueta todos sus tipos de
 diagrama y pesa ~75 KB gzip solo el núcleo) para no penalizar el resto de
 pestañas, que se abren muchas más veces.
+
+## Actualización automática en pepecono
+
+`library.db` ya no se copia a mano desde el portátil: Syncthing replica
+`/mnt/windows/Mix` en pepecono (`/mnt/NFS/moode/Mixxx`, carpeta "Mixxx",
+`receiveonly`) y el contenedor `mixxx-info` lo monta `:ro` **en la misma
+ruta `/mnt/windows/Mix`**, así `Song.file_path` y los `.m3u` siguen siendo
+rutas válidas en el portátil. Ofelia lanza `python main.py update` a diario:
+escanea, refresca los campos locales de todo, enriquece solo los ficheros
+nuevos y borra las entradas cuyo fichero ya no está. Si el escaneo
+encuentra menos de la mitad de pistas que la BD (montaje vacío, Syncthing
+a medias) aborta sin tocar nada. Sin Chrome en la imagen, las notas de
+Metacritic/AOTY (`reviews.py`, nodriver) se saltan.
+
+El servidor es la fuente de verdad: `relacionar_mix.py` crea y borra
+relaciones por la API (`MIXXX_INFO_API`, `POST/DELETE /api/relations`) en
+vez de escribir en un `library.db` local.

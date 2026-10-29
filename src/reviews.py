@@ -29,6 +29,7 @@ _SEARXNG_URL = os.environ.get("SEARXNG_URL", "http://localhost:8485")
 _loop: asyncio.AbstractEventLoop | None = None
 _loop_thread: threading.Thread | None = None
 _browser = None
+_browser_failed = False  # sin Chrome (p.ej. en Docker): no reintentar en cada canción
 _browser_lock = threading.Lock()
 
 
@@ -47,11 +48,17 @@ def _run(coro):
 
 
 async def _get_browser():
-    global _browser
+    global _browser, _browser_failed
     with _browser_lock:
+        if _browser_failed:
+            raise RuntimeError("browser unavailable")
         if _browser is None:
-            import nodriver as uc
-            _browser = await uc.start(headless=True)
+            try:
+                import nodriver as uc
+                _browser = await uc.start(headless=True)
+            except Exception:
+                _browser_failed = True
+                raise
     return _browser
 
 

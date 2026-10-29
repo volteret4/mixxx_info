@@ -13,7 +13,12 @@ from src.scanner import scan_library, MUSIC_ROOT
 from src.covers import fetch_cover
 from src import reviews as _reviews
 
-load_sops_env()
+try:
+    load_sops_env()
+except (FileNotFoundError, RuntimeError):
+    # En Docker no hay sops ni .encrypted.env: las variables llegan ya
+    # descifradas por env_file en docker-compose (scripts/up.sh)
+    pass
 
 
 @click.group()
@@ -82,6 +87,65 @@ def enrich(input_file, db, limit, skip_whosampled, skip_enrich):
         _reviews.stop_browser()
 
     click.echo("Done.")
+
+
+@cli.command()
+@click.option("--root", default=str(MUSIC_ROOT), show_default=True, help="Music library root path.")
+@click.option("--db", default="sqlite:///library.db", show_default=True)
+@click.option("--min-ratio", default=0.5, show_default=True,
+              help="Abort if the scan finds fewer tracks than this fraction of the DB "
+                   "(root not mounted / Syncthing mid-sync) instead of pruning everything.")
+def update(root, db, min_ratio):
+    """Daily job (Ofelia on pepecono): scan, refresh local fields of every track,
+    enrich only tracks that are NEW since the last run, prune the ones gone from disk.
+
+    Full `enrich` retries every track whose APIs returned nothing before, which
+    takes hours on the whole library -- here those are left alone and only new
+    files hit MusicBrainz/Discogs/Last.fm/etc.
+    """
+    engine = get_engine(db)
+    init_db(engine)
+
+    click.echo(f"Scanning {root} ...")
+    tracks, skipped = scan_library(Path(root))
+    with Session(engine) as session:
+        known = {p for (p,) in session.query(Song.file_path)}
+    if not tracks or len(tracks) < min_ratio * len(known):
+        raise click.ClickException(
+            f"Scan found {len(tracks)} tracks but the DB has {len(known)} -- "
+            f"is {root} mounted? Aborting without touching the DB."
+        )
+    on_disk = {t["file_path"] for t in tracks}
+    new_paths = on_disk - known
+    click.echo(f"{len(tracks)} tracks on disk, {len(new_paths)} new, {len(skipped)} unreadable")
+
+    with Session(engine) as session:
+        for track in tracks:
+            upsert_song(session, track)
+        session.commit()
+
+        new_songs = session.query(Song).filter(Song.file_path.in_(new_paths)).all() if new_paths else []
+        if new_songs:
+            try:
+                _reviews.start_browser()
+            except Exception as e:
+                click.echo(f"Reviews browser unavailable, skipping Metacritic/AOTY: {e}")
+            try:
+                for i, song in enumerate(new_songs, 1):
+                    label = f"{song.artist or '?'} — {song.title or song.file_path}"
+                    click.echo(f"[{i}/{len(new_songs)}] {label}")
+                    enrich_song(song, session)
+            finally:
+                _reviews.stop_browser()
+
+    # Unreadable files are still on disk: don't prune them
+    present = on_disk | set(skipped)
+    with Session(engine) as session:
+        stale = [s for s in session.query(Song).all() if s.file_path not in present]
+        for s in stale:
+            session.delete(s)
+        session.commit()
+    click.echo(f"Done. {len(new_songs)} enriched, {len(stale)} pruned.")
 
 
 @cli.command("ai-enrich")

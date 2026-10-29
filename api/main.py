@@ -729,8 +729,8 @@ def export_m3u(playlist_id: int):
 
 # ── Song relations API ───────────────────────────────────────────────────────
 # Las aristas las crea `relacionar_mix.py` (script de escritorio, fuera de
-# este repo — ver mixxx_info/CLAUDE.md) escribiendo directamente en este
-# library.db; aquí solo se exponen para que la web las muestre/gestione.
+# este repo — ver mixxx_info/CLAUDE.md) a través de estos mismos endpoints;
+# la web también las muestra/gestiona desde aquí.
 # Identificadas por artista+título, no por path (ver nota en src/db.py).
 
 class RelationCreate(BaseModel):
