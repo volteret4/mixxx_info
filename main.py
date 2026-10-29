@@ -95,13 +95,18 @@ def enrich(input_file, db, limit, skip_whosampled, skip_enrich):
 @click.option("--min-ratio", default=0.5, show_default=True,
               help="Abort if the scan finds fewer tracks than this fraction of the DB "
                    "(root not mounted / Syncthing mid-sync) instead of pruning everything.")
-def update(root, db, min_ratio):
+@click.option("--dry-run", is_flag=True, help="Only report moved/new/pruned counts, write nothing.")
+def update(root, db, min_ratio, dry_run):
     """Daily job (Ofelia on pepecono): scan, refresh local fields of every track,
     enrich only tracks that are NEW since the last run, prune the ones gone from disk.
 
     Full `enrich` retries every track whose APIs returned nothing before, which
     takes hours on the whole library -- here those are left alone and only new
     files hit MusicBrainz/Discogs/Last.fm/etc.
+
+    Files moved/renamed between folders (reorganising Mix) keep their row and
+    enrichment: a new path whose file name, or else artist+title, matches a
+    row whose file is gone is treated as a move, not as new + pruned.
     """
     engine = get_engine(db)
     init_db(engine)
@@ -116,10 +121,43 @@ def update(root, db, min_ratio):
             f"is {root} mounted? Aborting without touching the DB."
         )
     on_disk = {t["file_path"] for t in tracks}
-    new_paths = on_disk - known
-    click.echo(f"{len(tracks)} tracks on disk, {len(new_paths)} new, {len(skipped)} unreadable")
+    # Unreadable files are still on disk: neither moved nor pruned
+    present = on_disk | set(skipped)
+    new_tracks = [t for t in tracks if t["file_path"] not in known]
 
     with Session(engine) as session:
+        gone = [s for s in session.query(Song).all() if s.file_path not in present]
+        by_name, by_tag = {}, {}
+        for s in gone:
+            by_name.setdefault(Path(s.file_path).name, []).append(s)
+            key = _tag_key(s.artist, s.title)
+            if key:
+                by_tag.setdefault(key, []).append(s)
+        used = set()
+
+        def _take(candidates):
+            for c in candidates or []:
+                if c.id not in used:
+                    used.add(c.id)
+                    return c
+            return None
+
+        moved = 0
+        for t in new_tracks:
+            song = _take(by_name.get(Path(t["file_path"]).name)) or _take(by_tag.get(_tag_key(t.get("artist"), t.get("title"))))
+            if song:
+                song.file_path = t["file_path"]
+                moved += 1
+        new_paths = {t["file_path"] for t in new_tracks} - {s.file_path for s in gone if s.id in used}
+        stale_count = len(gone) - moved
+        click.echo(f"{len(tracks)} tracks on disk: {moved} moved, {len(new_paths)} new, "
+                   f"{stale_count} gone, {len(skipped)} unreadable")
+        if dry_run:
+            session.rollback()
+            click.echo("Dry run — nothing written.")
+            return
+
+        session.flush()
         for track in tracks:
             upsert_song(session, track)
         session.commit()
@@ -138,14 +176,17 @@ def update(root, db, min_ratio):
             finally:
                 _reviews.stop_browser()
 
-    # Unreadable files are still on disk: don't prune them
-    present = on_disk | set(skipped)
     with Session(engine) as session:
         stale = [s for s in session.query(Song).all() if s.file_path not in present]
         for s in stale:
             session.delete(s)
         session.commit()
-    click.echo(f"Done. {len(new_songs)} enriched, {len(stale)} pruned.")
+    click.echo(f"Done. {moved} moved, {len(new_songs)} enriched, {len(stale)} pruned.")
+
+
+def _tag_key(artist, title):
+    a, t = (artist or "").strip().lower(), (title or "").strip().lower()
+    return (a, t) if a and t else None
 
 
 @cli.command("ai-enrich")
