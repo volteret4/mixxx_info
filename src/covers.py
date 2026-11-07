@@ -40,6 +40,16 @@ def _discogs_url(release_id: str, token: str) -> str | None:
         return None
 
 
+def thumb_url(url: str, size: int = 500) -> str:
+    """Miniatura de Cover Art Archive (250, 500 o 1200 px) en vez de la imagen original."""
+    if "coverartarchive.org/release/" in url:
+        base, _, ext = url.rpartition(".")
+        if base and "/" not in ext and not base.endswith(("-250", "-500", "-1200")):
+            url = f"{base}-{size}.{ext}"
+        url = url.replace("http://", "https://", 1)
+    return url
+
+
 def _download(url: str, dest: Path) -> bool:
     try:
         resp = requests.get(url, headers=_HEADERS, timeout=20, stream=True)
@@ -60,11 +70,14 @@ def fetch_cover(
     mb_release_id: str | None = None,
     discogs_release_id: str | None = None,
     discogs_token: str | None = None,
+    download: bool = False,
 ) -> tuple[str | None, str | None]:
     """
     Returns (local_relative_path, source_url).
     Tries Cover Art Archive first, then Discogs.
-    Skips download if local file already exists (dedup by artist+album hash).
+    By default nothing is downloaded: the path is only the key that
+    /covers/<name> resolves, redirecting to source_url when there is no
+    local file. With download=True the image is saved as before.
     """
     source_url = None
     if mb_release_id:
@@ -79,7 +92,7 @@ def fetch_cover(
     ext = ext if ext in ("jpg", "jpeg", "png", "webp") else "jpg"
     dest = covers_dir / f"{slug}.{ext}"
 
-    if dest.exists():
+    if dest.exists() or not download:
         return str(dest), source_url
 
     return (str(dest), source_url) if _download(source_url, dest) else (None, source_url)

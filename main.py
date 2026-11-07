@@ -212,8 +212,10 @@ def ai_enrich(db, limit):
 @click.option("--db", default="sqlite:///library.db", show_default=True)
 @click.option("--covers-dir", default="covers", show_default=True)
 @click.option("--limit", default=0, help="Max albums to process (0 = all).")
-def download_covers(db, covers_dir, limit):
-    """Download cover art for albums that don't have one yet."""
+@click.option("--save/--no-save", default=False, show_default=True,
+              help="Save the images in covers-dir; by default only the source URL is stored.")
+def download_covers(db, covers_dir, limit, save):
+    """Find cover art for albums that don't have one yet."""
     from pathlib import Path
     engine = get_engine(db)
     covers_path = Path(covers_dir)
@@ -238,6 +240,7 @@ def download_covers(db, covers_dir, limit):
                 mb_release_id=song.musicbrainz_release_id,
                 discogs_release_id=song.discogs_release_id,
                 discogs_token=token,
+                download=save,
             )
             if path:
                 session.query(Song).filter(
@@ -246,7 +249,7 @@ def download_covers(db, covers_dir, limit):
                 session.commit()
                 processed += 1
 
-    click.echo(f"Done. {processed} covers downloaded to {covers_dir}/.")
+    click.echo(f"Done. {processed} covers found" + (f", saved in {covers_dir}/." if save else "."))
 
 
 @cli.command("sync-mixxx")

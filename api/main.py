@@ -16,12 +16,12 @@ import requests as _req
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import or_, func, String
 from sqlalchemy.orm import Session
 
+from src.covers import thumb_url
 from src.db import get_engine, init_db, Song, Playlist, PlaylistTrack, SongRelation
 
 DB_URL = "sqlite:///library.db"
@@ -147,8 +147,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-if COVERS_DIR.exists():
-    app.mount("/covers", StaticFiles(directory=str(COVERS_DIR)), name="covers")
+@app.get("/covers/{name}")
+def cover(name: str):
+    """Portada local si existe; si no, redirige a la URL de origen guardada."""
+    if "/" in name or "\\" in name or name.startswith("."):
+        raise HTTPException(404)
+    local = COVERS_DIR / name
+    if local.is_file():
+        return FileResponse(local, headers={"Cache-Control": "public, max-age=604800"})
+    with Session(engine) as session:
+        row = (
+            session.query(Song.cover_art_url)
+            .filter(Song.cover_art_path.in_([f"covers/{name}", name]), Song.cover_art_url.isnot(None))
+            .first()
+        )
+    if not row:
+        raise HTTPException(404)
+    return RedirectResponse(thumb_url(row[0]), status_code=302, headers={"Cache-Control": "public, max-age=86400"})
 
 
 # ── Camelot key conversion ────────────────────────────────────────────────────
