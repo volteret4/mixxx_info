@@ -15,3 +15,5 @@ library.json.BAK
 node_modules/
 dist/
 .venv*/
+datos/
+!.env.example
