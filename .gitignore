@@ -17,3 +17,7 @@ dist/
 .venv*/
 datos/
 !.env.example
+
+# credenciales, también las cifradas
+*encrypted*.env
+.env
